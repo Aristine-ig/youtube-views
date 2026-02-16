@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Play, LogOut, ListVideo, Users, ArrowDownToLine, Plus, Pencil, Trash2,
-  ToggleLeft, ToggleRight, X
+  ToggleLeft, ToggleRight, X, Upload
 } from "lucide-react";
 
 interface Task {
@@ -20,10 +21,23 @@ interface Task {
   max_users: number;
   completed_count: number;
   is_enabled: boolean;
+  video_thumbnail: string | null;
   created_at: string;
 }
 
-const emptyForm = {
+interface FormState {
+  title: string;
+  channel_name: string;
+  video_length: string;
+  required_actions: string;
+  reward_amount: string;
+  max_users: string;
+  is_enabled: boolean;
+  video_thumbnail: string;
+  thumbnailFile?: File;
+}
+
+const emptyForm: FormState = {
   title: "",
   channel_name: "",
   video_length: "",
@@ -31,6 +45,7 @@ const emptyForm = {
   reward_amount: "",
   max_users: "500",
   is_enabled: true,
+  video_thumbnail: "",
 };
 
 export default function AdminTasksPage() {
@@ -74,19 +89,33 @@ export default function AdminTasksPage() {
     }
     
     try {
+      const formData = new FormData();
+      formData.append("title", form.title);
+      formData.append("channel_name", form.channel_name);
+      formData.append("video_length", form.video_length);
+      formData.append("required_actions", form.required_actions);
+      formData.append("reward_amount", form.reward_amount);
+      formData.append("max_users", form.max_users);
+      formData.append("is_enabled", String(form.is_enabled));
+      
+      if (form.thumbnailFile) {
+        formData.append("file", form.thumbnailFile);
+      } else if (form.video_thumbnail && !editingId) {
+        formData.append("video_thumbnail", form.video_thumbnail);
+      }
+
       if (editingId) {
+        formData.append("id", editingId);
         const res = await fetch("/api/admin/tasks", {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingId, ...form }),
+          body: formData,
         });
         if (!res.ok) throw new Error((await res.json()).error);
         toast.success("Task updated");
       } else {
         const res = await fetch("/api/admin/tasks", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: formData,
         });
         if (!res.ok) throw new Error((await res.json()).error);
         toast.success("Task created");
@@ -135,6 +164,7 @@ export default function AdminTasksPage() {
       reward_amount: String(task.reward_amount),
       max_users: String(task.max_users),
       is_enabled: task.is_enabled,
+      video_thumbnail: task.video_thumbnail || "",
     });
     setShowForm(true);
   };
@@ -206,6 +236,63 @@ export default function AdminTasksPage() {
                     className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none focus:border-emerald-500" 
                     placeholder="Enter task title" 
                   />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-300">Thumbnail Image</label>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <label className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-white/20 bg-white/5 px-4 py-8 cursor-pointer hover:border-emerald-500 hover:bg-emerald-500/5 transition">
+                        <div className="text-center">
+                          <Upload className="h-5 w-5 mx-auto mb-2 text-gray-400" />
+                          <p className="text-sm text-gray-400">Click to upload image</p>
+                          <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB</p>
+                        </div>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) {
+                              setForm({ ...form, thumbnailFile: e.target.files[0] });
+                            }
+                          }} 
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                    {form.thumbnailFile ? (
+                      <div className="relative h-32 w-full rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                        <Image
+                          src={URL.createObjectURL(form.thumbnailFile)}
+                          alt="Thumbnail preview"
+                          fill
+                          className="object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, thumbnailFile: undefined })}
+                          className="absolute top-2 right-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : form.video_thumbnail && !form.thumbnailFile ? (
+                      <div className="relative h-32 w-full rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                        <Image
+                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${form.video_thumbnail}`}
+                          alt="Current thumbnail"
+                          fill
+                          className="object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, video_thumbnail: "" })}
+                          className="absolute top-2 right-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-300">Channel Name *</label>
