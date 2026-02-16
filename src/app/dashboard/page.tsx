@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Play, DollarSign, CheckCircle, Clock, LogOut, ArrowDownToLine,
-  XCircle, Wallet, ChevronDown, ChevronUp, Eye
+  XCircle, Wallet, ChevronDown, ChevronUp, Eye, ThumbsUp, Users, MessageCircle
 } from "lucide-react";
 import Link from "next/link";
 
@@ -194,8 +194,30 @@ export default function DashboardPage() {
               </div>
               {activeTask.required_actions && (
                 <div className="mb-6 rounded-xl bg-amber-500/10 border border-amber-500/20 p-4">
-                  <div className="text-sm font-medium text-amber-400 mb-1">Required Actions</div>
-                  <p className="text-sm text-gray-300">{activeTask.required_actions}</p>
+                  <div className="text-sm font-medium text-amber-400 mb-3">Required Actions</div>
+                  <div className="flex flex-wrap gap-3">
+                    {(() => {
+                      const actions = activeTask.required_actions.toLowerCase();
+                      const actionList = [];
+                      
+                      if (actions.includes("watch")) actionList.push({ icon: Play, label: "Watch", color: "text-blue-400", bgColor: "bg-blue-500/10" });
+                      if (actions.includes("like")) actionList.push({ icon: ThumbsUp, label: "Like", color: "text-red-400", bgColor: "bg-red-500/10" });
+                      if (actions.includes("subscribe")) actionList.push({ icon: Users, label: "Subscribe", color: "text-purple-400", bgColor: "bg-purple-500/10" });
+                      if (actions.includes("comment")) actionList.push({ icon: MessageCircle, label: "Comment", color: "text-yellow-400", bgColor: "bg-yellow-500/10" });
+                      
+                      return actionList.length > 0 ? actionList.map((action) => (
+                        <div
+                          key={action.label}
+                          className={`flex items-center gap-2 rounded-lg ${action.bgColor} px-3 py-2 border border-white/10`}
+                        >
+                          <action.icon className={`h-4 w-4 ${action.color}`} />
+                          <span className="font-medium">{action.label}</span>
+                        </div>
+                      )) : (
+                        <p className="text-sm text-gray-300">{activeTask.required_actions}</p>
+                      );
+                    })()}
+                  </div>
                 </div>
               )}
               <div className="space-y-3">
@@ -481,6 +503,39 @@ export default function DashboardPage() {
 }
 
 function TaskCard({ task, onStart, starting }: { task: Task; onStart: () => void; starting: boolean }) {
+  const renderRequiredActions = () => {
+    if (!task.required_actions) return null;
+    
+    const actions = task.required_actions.toLowerCase();
+    const actionList = [];
+    
+    if (actions.includes("watch")) actionList.push({ icon: Play, label: "Watch", color: "text-blue-400" });
+    if (actions.includes("like")) actionList.push({ icon: ThumbsUp, label: "Like", color: "text-red-400" });
+    if (actions.includes("subscribe")) actionList.push({ icon: Users, label: "Subscribe", color: "text-purple-400" });
+    if (actions.includes("comment")) actionList.push({ icon: MessageCircle, label: "Comment", color: "text-yellow-400" });
+    
+    if (actionList.length === 0) {
+      return <p className="mb-3 text-sm text-gray-400">{task.required_actions}</p>;
+    }
+    
+    return (
+      <div className="mb-4">
+        <p className="mb-2 text-xs font-medium text-gray-400">Required Actions:</p>
+        <div className="flex flex-wrap gap-2">
+          {actionList.map((action) => (
+            <div
+              key={action.label}
+              className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs font-medium border border-white/10"
+            >
+              <action.icon className={`h-3.5 w-3.5 ${action.color}`} />
+              <span>{action.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+  
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
       <div className="flex h-40 items-center justify-center bg-white/5">
@@ -494,9 +549,7 @@ function TaskCard({ task, onStart, starting }: { task: Task; onStart: () => void
         {task.video_length && (
           <p className="mb-2 text-xs text-gray-500">Length: {task.video_length}</p>
         )}
-        {task.required_actions && (
-          <p className="mb-3 text-sm text-gray-400 line-clamp-2">{task.required_actions}</p>
-        )}
+        {renderRequiredActions()}
         <div className="mb-4 flex items-center gap-4 text-xs text-gray-400">
           <span className="flex items-center gap-1">
             <DollarSign className="h-3.5 w-3.5 text-emerald-400" />
