@@ -22,17 +22,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File size must be less than 1MB" }, { status: 400 });
     }
     
-    // Convert file to base64
-    const bytes = await file.arrayBuffer();
-    const chunkSize = 8192; // Process in chunks to avoid memory issues
-    const uint8Array = new Uint8Array(bytes);
-    let base64 = '';
-    
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize);
-      base64 += btoa(String.fromCharCode(...chunk));
-    }
-    
+    // Simple base64 conversion
+    const arrayBuffer = await file.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
     const dataUrl = `data:${file.type};base64,${base64}`;
     
     return NextResponse.json({ url: dataUrl });
