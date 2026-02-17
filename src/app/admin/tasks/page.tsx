@@ -14,6 +14,7 @@ interface Task {
   id: string;
   title: string;
   channel_name: string;
+  video_thumbnail: string;
   video_length: string;
   required_actions: string;
   reward_amount: number;
@@ -26,6 +27,7 @@ interface Task {
 const emptyForm = {
   title: "",
   channel_name: "",
+  video_thumbnail: "",
   video_length: "",
   required_actions: "",
   reward_amount: "",
@@ -41,6 +43,8 @@ export default function AdminTasksPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
 
   const fetchTasks = useCallback(async () => {
     const res = await fetch("/api/admin/tasks");
@@ -49,6 +53,43 @@ export default function AdminTasksPage() {
       setTasks(data.tasks);
     }
   }, []);
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image file");
+        e.target.value = ""; // Clear the input
+        return;
+      }
+      
+      // Validate file size (1MB = 1024 * 1024 bytes)
+      if (file.size > 1 * 1024 * 1024) {
+        toast.error("File size must be less than 1MB");
+        e.target.value = ""; // Clear the input
+        return;
+      }
+      
+      setThumbnailFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setThumbnailPreview(reader.result as string);
+      };
+      reader.onerror = () => {
+        toast.error("Failed to read file");
+        setThumbnailFile(null);
+        setThumbnailPreview("");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearThumbnail = () => {
+    setThumbnailFile(null);
+    setThumbnailPreview("");
+    setForm({ ...form, video_thumbnail: "" });
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -74,11 +115,39 @@ export default function AdminTasksPage() {
     }
     
     try {
+      let thumbnailUrl = form.video_thumbnail;
+      
+      // Upload thumbnail if file is selected
+      if (thumbnailFile) {
+        try {
+          const formData = new FormData();
+          formData.append("file", thumbnailFile);
+          
+          const uploadRes = await fetch("/api/admin/upload", {
+            method: "POST",
+            body: formData,
+          });
+          
+          if (!uploadRes.ok) {
+            const uploadError = await uploadRes.json();
+            throw new Error(uploadError.error || "Failed to upload thumbnail");
+          }
+          
+          const uploadData = await uploadRes.json();
+          thumbnailUrl = uploadData.url;
+        } catch (uploadError) {
+          console.error("Upload error:", uploadError);
+          throw new Error(uploadError instanceof Error ? uploadError.message : "Failed to upload thumbnail");
+        }
+      }
+      
+      const taskData = { ...form, video_thumbnail: thumbnailUrl };
+      
       if (editingId) {
         const res = await fetch("/api/admin/tasks", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingId, ...form }),
+          body: JSON.stringify({ id: editingId, ...taskData }),
         });
         if (!res.ok) throw new Error((await res.json()).error);
         toast.success("Task updated");
@@ -86,14 +155,18 @@ export default function AdminTasksPage() {
         const res = await fetch("/api/admin/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(taskData),
         });
         if (!res.ok) throw new Error((await res.json()).error);
         toast.success("Task created");
       }
+      
+      // Reset form and file states
       setShowForm(false);
       setEditingId(null);
       setForm(emptyForm);
+      setThumbnailFile(null);
+      setThumbnailPreview("");
       await fetchTasks();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -130,12 +203,14 @@ export default function AdminTasksPage() {
     setForm({
       title: task.title || "",
       channel_name: task.channel_name || "",
+      video_thumbnail: task.video_thumbnail || "",
       video_length: task.video_length || "",
       required_actions: task.required_actions || "",
       reward_amount: String(task.reward_amount),
       max_users: String(task.max_users),
       is_enabled: task.is_enabled,
     });
+    setThumbnailPreview(task.video_thumbnail || "");
     setShowForm(true);
   };
 
@@ -192,7 +267,7 @@ export default function AdminTasksPage() {
             <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-gray-900 p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xl font-bold">{editingId ? "Edit Task" : "Add New Task"}</h2>
-                <button onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); }}>
+                <button onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); setThumbnailFile(null); setThumbnailPreview(""); }}>
                   <X className="h-5 w-5 text-gray-400 hover:text-white" />
                 </button>
               </div>
@@ -206,6 +281,44 @@ export default function AdminTasksPage() {
                     className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none focus:border-emerald-500" 
                     placeholder="Enter task title" 
                   />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-300">Video Thumbnail</label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleThumbnailChange}
+                        className="hidden"
+                        id="thumbnail-upload"
+                      />
+                      <label
+                        htmlFor="thumbnail-upload"
+                        className="flex-1 cursor-pointer rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-center text-white transition hover:border-emerald-500 hover:bg-white/10"
+                      >
+                        {thumbnailFile ? thumbnailFile.name : "Choose Image File"}
+                      </label>
+                      {thumbnailPreview && (
+                        <button
+                          type="button"
+                          onClick={clearThumbnail}
+                          className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-red-400 transition hover:bg-red-500/20"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    {thumbnailPreview && (
+                      <div className="relative h-32 w-full overflow-hidden rounded-lg border border-white/10">
+                        <img
+                          src={thumbnailPreview}
+                          alt="Thumbnail preview"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-300">Channel Name *</label>

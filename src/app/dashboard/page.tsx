@@ -14,6 +14,7 @@ interface Task {
   id: string;
   title: string;
   channel_name: string;
+  video_thumbnail: string;
   video_length: string;
   required_actions: string;
   reward_amount: number;
@@ -481,10 +482,25 @@ export default function DashboardPage() {
 }
 
 function TaskCard({ task, onStart, starting }: { task: Task; onStart: () => void; starting: boolean }) {
+  const [imageError, setImageError] = useState(false);
+  
+  const handleImageError = () => {
+    setImageError(true);
+  };
+  
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
       <div className="flex h-40 items-center justify-center bg-white/5">
-        <Play className="h-12 w-12 text-gray-600" />
+        {task.video_thumbnail && !imageError ? (
+          <img 
+            src={task.video_thumbnail} 
+            alt="Video thumbnail" 
+            className="h-full w-full object-cover"
+            onError={handleImageError}
+          />
+        ) : (
+          <Play className="h-12 w-12 text-gray-600" />
+        )}
       </div>
       <div className="p-5">
         <h3 className="mb-1 font-semibold leading-tight">{task.title || "Task"}</h3>

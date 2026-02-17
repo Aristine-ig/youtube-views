@@ -33,6 +33,7 @@ interface Task {
   id: string;
   channel_name: string;
   title: string;
+  video_thumbnail: string;
   video_length: string;
   required_actions: string;
   reward_amount: number;
@@ -247,6 +248,8 @@ export default function AdminPage() {
                     <label className="mb-1 block text-sm font-medium text-gray-300">Title</label>
                     <input required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none focus:border-emerald-500" placeholder="Title" />
                   </div>
+                  
+                  
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-300">Video Length</label>

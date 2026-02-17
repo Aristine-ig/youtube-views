@@ -22,10 +22,16 @@ export async function POST(req: NextRequest) {
   try {
     await requireAdmin();
     const body = await req.json();
-    const { title, channel_name, video_length, required_actions, reward_amount, max_users, is_enabled } = body;
+    const { title, channel_name, video_thumbnail, video_length, required_actions, reward_amount, max_users, is_enabled } = body;
 
     if (!title || title.trim() === '' || !channel_name || channel_name.trim() === '' || !reward_amount) {
       return NextResponse.json({ error: "Title, channel name and reward amount are required" }, { status: 400 });
+    }
+    
+    // Validate reward amount
+    const parsedRewardAmount = parseFloat(reward_amount);
+    if (isNaN(parsedRewardAmount) || parsedRewardAmount <= 0) {
+      return NextResponse.json({ error: "Reward amount must be a positive number" }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -33,9 +39,10 @@ export async function POST(req: NextRequest) {
       .insert({
         title: title,
         channel_name: channel_name || null,
+        video_thumbnail: video_thumbnail || null,
         video_length: video_length || null,
         required_actions: required_actions || null,
-        reward_amount: parseFloat(reward_amount),
+        reward_amount: parsedRewardAmount,
         max_users: max_users || 500,
         is_enabled: is_enabled !== false,
       })
@@ -63,8 +70,24 @@ export async function PUT(req: NextRequest) {
     if (updates.channel_name === '' || updates.channel_name?.trim() === '') {
       return NextResponse.json({ error: "Channel name cannot be empty" }, { status: 400 });
     }
-
-    if (updates.reward_amount) updates.reward_amount = parseFloat(updates.reward_amount);
+    
+    // Validate reward amount if provided
+    if (updates.reward_amount !== undefined) {
+      if (typeof updates.reward_amount === 'string') {
+        if (updates.reward_amount.trim() === '') {
+          return NextResponse.json({ error: "Reward amount cannot be empty" }, { status: 400 });
+        }
+        const parsedAmount = parseFloat(updates.reward_amount);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+          return NextResponse.json({ error: "Reward amount must be a positive number" }, { status: 400 });
+        }
+        updates.reward_amount = parsedAmount;
+      } else if (typeof updates.reward_amount === 'number') {
+        if (updates.reward_amount <= 0) {
+          return NextResponse.json({ error: "Reward amount must be a positive number" }, { status: 400 });
+        }
+      }
+    }
     updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
